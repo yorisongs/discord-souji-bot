@@ -35,26 +35,50 @@ Discordのチャンネルのメッセージをまとめて削除するBotです�
 - Botを起動している間だけ使えます。
 
 ## 起動方法
-1. フォルダ内の `start.bat` をダブルクリックします。
-2. 黒い画面に `connected to Gateway` と出たら起動完了です。
-3. 黒い画面を閉じるとBotは止まります。
+
+### 普段使い（おすすめ）：自動起動
+一度だけ実行すれば、PCにログインするたびにBotが裏で自動起動します。落ちても自動で再起動します。
+
+| | Windows | Mac |
+|---|---|---|
+| 自動起動を登録（今すぐ起動も） | `windows\autostart_install.bat` | `mac/autostart_install.command` |
+| 自動起動をやめる | `windows\autostart_uninstall.bat` | `mac/autostart_uninstall.command` |
+| 一時的に止める | `windows\stop.bat` | `mac/stop.command` |
+
+- 画面が出ないので、動作の記録は `bot.log` で確認します（`connected to Gateway` があれば接続OK）。
+- フォルダを移動したら、移動先で「自動起動を登録」をもう一度実行してください。
+
+### 手動で起動
+- Windows：`windows\start.bat` をダブルクリック
+- Mac：`mac/start.command` をダブルクリック
+
+画面（黒いウィンドウ／ターミナル）を閉じるとBotは止まります。
 
 ※ 二重起動はできません。同じPCで既に起動中の場合は「Botは既に起動しています。終了します。」と表示されて終了します（別のPCで同時に起動した場合は防げません）。
 
 ## 初回の準備（導入する人向け）
-- PCにPythonをインストールしておきます。
+- PCにPythonをインストールしておきます（Macは `python3`）。
 - `.env` に `DISCORD_TOKEN=Botトークン` と書きます（`.env.example` をコピーして使えます）。
 - 招待URLでBotをサーバーに招待します。必要な権限は「チャンネルを見る」「メッセージの管理」「メッセージ履歴を読む」です。
+
+### Macの初回だけ
+- `.command` がダブルクリックで開けない場合は、ターミナルで一度だけ実行します：
+  `chmod +x mac/*.command`
+- 「開発元を確認できません」と出たら、右クリック →「開く」で実行します。
+- フォルダをGoogleドライブに置く場合、自動起動したBotがファイルを読めるように「システム設定 → プライバシーとセキュリティ → フルディスクアクセス」で Python を許可する必要があることがあります（`bot.log` に `Operation not permitted` と出たらこれ）。
 
 ## ファイル構成
 
 | ファイル | 内容 |
 |---|---|
-| `bot.py` | Bot本体 |
-| `start.bat` | 起動用（ダブルクリック） |
+| `bot.py` | Bot本体（Windows・Mac共通） |
 | `.env` | トークン（**他人に共有しないこと**） |
 | `.env.example` | `.env` のひな形 |
 | `requirements.txt` | 必要なライブラリの一覧 |
+| `bot.log` | 自動起動時の動作記録 |
+| `windows/` | Windows用の起動・停止ファイル |
+| `mac/` | Mac用の起動・停止ファイル |
+| `worker/` | Cloudflare Workers版（PCなしで動かす場合。現在は未使用） |
 | `README.md` | この説明書 |
 
 フォルダごと移動しても、そのまま動きます。

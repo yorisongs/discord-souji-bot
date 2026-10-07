@@ -53,7 +53,9 @@ async function run(interaction, env) {
 
 // メッセージを新しい順に取得して削除する
 async function purge(env, channelId, { limit, userId, onlyRecent }) {
-  const now = Date.now();
+  const s = { n: 0 }; // 外部通信の回数（リクエストごとに数える）
+  const started = Date.now();
+  const now = started;
   let before;
   let scanned = 0;
   const recent = [];
@@ -62,7 +64,7 @@ async function purge(env, channelId, { limit, userId, onlyRecent }) {
   while (scanned < limit) {
     const n = Math.min(100, limit - scanned);
     const q = `limit=${n}` + (before ? `&before=${before}` : "");
-    const msgs = await discord(env, "GET", `/channels/${channelId}/messages?${q}`);
+    const msgs = await discord(s, env, "GET", `/channels/${channelId}/messages?${q}`);
     if (msgs.length === 0) break;
     scanned += msgs.length;
     before = msgs[msgs.length - 1].id;
@@ -80,19 +82,24 @@ async function purge(env, channelId, { limit, userId, onlyRecent }) {
   // 14日以内はまとめて削除（100件ずつ）
   for (let i = 0; i < recent.length; i += 100) {
     const chunk = recent.slice(i, i + 100);
-    if (chunk.length === 1) await discord(env, "DELETE", `/channels/${channelId}/messages/${chunk[0]}`);
-    else await discord(env, "POST", `/channels/${channelId}/messages/bulk-delete`, { messages: chunk });
+    if (chunk.length === 1) await discord(s, env, "DELETE", `/channels/${channelId}/messages/${chunk[0]}`);
+    else await discord(s, env, "POST", `/channels/${channelId}/messages/bulk-delete`, { messages: chunk });
   }
-  // 14日より古いものは1件ずつ（無料プランの制限で最大30件まで）
-  const oldTargets = old.slice(0, 30);
-  for (const id of oldTargets) {
-    await discord(env, "DELETE", `/channels/${channelId}/messages/${id}`);
+  // 14日より古いものは1件ずつ。無料プランの上限（外部通信50回／応答後30秒）に収まる範囲だけ
+  const budget = 50 - s.n - 2; // 完了通知と余裕の分を残す
+  const deadline = started + 22_000;
+  let oldDeleted = 0;
+  for (const id of old.slice(0, Math.max(0, budget))) {
+    if (Date.now() > deadline) break;
+    await discord(s, env, "DELETE", `/channels/${channelId}/messages/${id}`);
+    oldDeleted++;
   }
-  return recent.length + oldTargets.length;
+  return recent.length + oldDeleted;
 }
 
-async function discord(env, method, path, body) {
+async function discord(s, env, method, path, body) {
   for (let attempt = 0; attempt < 3; attempt++) {
+    s.n++;
     const res = await fetch(API + path, {
       method,
       headers: {
@@ -107,7 +114,10 @@ async function discord(env, method, path, body) {
       continue;
     }
     if (res.status === 403) throw new Error("Botにこのチャンネルの権限がありません（チャンネルを見る／メッセージの管理／メッセージ履歴を読む）。");
-    if (!res.ok) throw new Error(`Discord API ${res.status}: ${await res.text()}`);
+    if (!res.ok) {
+      console.log(`Discord API ${res.status}: ${await res.text()}`); // 詳細はログにだけ残す
+      throw new Error(`Discordでエラーが発生しました（${res.status}）。`);
+    }
     return res.status === 204 ? null : res.json();
   }
   throw new Error("Discordの回数制限にかかりました。少し待ってから再実行してください。");

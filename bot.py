@@ -19,7 +19,7 @@ try:
     _lock.bind(("127.0.0.1", LOCK_PORT))
 except OSError:
     print("Botは既に起動しています。終了します。")
-    sys.exit(1)
+    sys.exit(3)  # run_forever.bat はこの番号を見て再起動をやめる
 
 intents = discord.Intents.default()
 client = discord.Client(intents=intents)
@@ -66,8 +66,15 @@ async def purge_all(interaction: discord.Interaction):
 
 @tree.error
 async def on_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
-    msg = "権限がありません（メッセージの管理が必要）。" if isinstance(
-        error, app_commands.MissingPermissions) else f"エラー: {error}"
+    original = getattr(error, "original", error)
+    if isinstance(error, app_commands.MissingPermissions):
+        msg = "権限がありません（メッセージの管理が必要）。"
+    elif isinstance(original, discord.Forbidden):
+        msg = ("Botにこのチャンネルの権限がありません。\n"
+               "チャンネルの設定 → 権限 で、Botのロールに「チャンネルを見る」"
+               "「メッセージの管理」「メッセージ履歴を読む」を許可してください。")
+    else:
+        msg = f"エラー: {original}"
     if interaction.response.is_done():
         await interaction.followup.send(msg, ephemeral=True)
     else:
